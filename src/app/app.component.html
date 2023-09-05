@@ -1,2 +1,6 @@
 <h1>App- Form</h1>
-<app-email-form></app-email-form>
+<button (click)="captureScreenshot()">Capture Screenshot</button>
+<div *ngIf="screenshotPath">
+  <p>Screenshot saved at: {{ screenshotPath }}</p>
+  <img [src]="screenshotPath" alt="Screenshot">
+</div>

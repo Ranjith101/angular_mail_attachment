@@ -1,67 +1,34 @@
-const express = require('express');
-const multer = require('multer');
-const nodemailer = require('nodemailer');
-const path = require('path');
-const cors = require('cors');
-
-const bodyParser = require('body-parser'); // Add this import statement
+const express = require("express");
+const puppeteer = require("puppeteer");
+const cors = require("cors");
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
+app.use(express.json());
 app.use(cors());
+// Serve static files from the 'images' directory
+app.use(express.static('images'));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/');
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
-  },
-});
-const upload = multer({ storage });
+app.post("/screenshot", async (req, res) => {
+  const url = req.body.url;
 
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: 'snowj0940@gmail.com',
-    pass: 'ytipaworlavvyaxe',
-  },
-});
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
 
-app.use(express.static(path.join(__dirname, 'angular-dist')));
-
-// Use body-parser middleware for JSON parsing
-app.use(bodyParser.json());
-
-app.post('/send-email', upload.single('screenshot'), async (req, res) => {
-  try {
-    const { to, subject, message, screenshotData } = req.body;
-
-    // Convert base64 image data to a buffer
-    const screenshotBuffer = Buffer.from(screenshotData, 'base64');
-
-    const mailOptions = {
-      from: 'snowj0940@gmail.com',
-      to,
-      subject,
-      text: message,
-      attachments: [
-        {
-          filename: 'screenshot.jpg',
-          content: screenshotBuffer,
-        },
-      ],
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-
-    console.log('Email sent: ' + info.response);
-    res.status(200).send('Email sent successfully');
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error sending email');
-  }
+  // Navigate to the URL and wait for 4 minutes (240,000 milliseconds)
+  await page.goto(url, { waitUntil: "load"});
+  await page.waitForTimeout(2 * 60 * 1000); // 5 minutes
+  // Set the viewport height to a very large value
+  await page.setViewport({ width: 1200, height: 10000 });
+  // Capture a screenshot of the entire page
+  const screenshotPath = `screenshot.png`; // You can customize the file path and name
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+  const pdfPath = `page.pdf`;
+  await page.pdf({ path: pdfPath, format: 'A4' });
+  await browser.close();
+  console.log("browser closed")
+  res.json({ img_path: screenshotPath,pdf_path:pdfPath });
 });
 
 app.listen(port, () => {

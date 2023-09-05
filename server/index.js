@@ -1,57 +1,59 @@
-const express = require('express');
-const nodemailer = require('nodemailer');
-const puppeteer = require('puppeteer');
-const Cors = require('cors')
+const express = require("express");
+const puppeteer = require("puppeteer");
+const cors = require("cors");
+
 const app = express();
+const port = 3000;
 
-const port = process.env.PORT || 3000;
-
-app.use(Cors())
 app.use(express.json());
+app.use(cors());
+// Serve static files from the 'images' directory
+app.use(express.static('images'));
 
-const transporter = nodemailer.createTransport({
-  service: 'Gmail',
-  auth: {
-    user: 'snowj0940@gmail.com',
-    pass: 'ytipaworlavvyaxe',
-  },
-});
+app.post("/screenshot", async (req, res) => {
+  const url = req.body.url;
 
-app.post('/send-email', async (req, res) => {
-  try {
-    const { to, subject, message } = req.body;
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
 
-    // Launch a headless browser and capture a screenshot
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    await page.goto('http://localhost:4200'); // Replace with your Angular app URL
-    const screenshot = await page.screenshot();
+  // Navigate to the URL and wait for 4 minutes (240,000 milliseconds)
+  await page.goto(url, { waitUntil: "load"});
+  await page.waitForTimeout(4 * 60 * 1000); // 5 minutes
+  // Set the viewport height to a very large value
+  await page.setViewport({ width: 1200, height: 12000 });
+  await autoScroll(page);
+  // Capture a screenshot of the entire page
+  const screenshotPath = `screenshot.png`; // You can customize the file path and name
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+  const pdfPath = `page.pdf`;
+  await page.pdf({ path: pdfPath, format: 'A4' });
 
-    // Send the email with the screenshot as an attachment
-    const mailOptions = {
-      from: 'snowj0940@gmail.com',
-      to,
-      subject,
-      text: message,
-      attachments: [
-        {
-          filename: 'screenshot.png',
-          content: screenshot,
-        },
-      ],
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    await browser.close();
-
-    res.status(200).send('Email sent successfully');
-  } catch (error) {
-    console.error(error);
-    res.status(500).send('Error sending email');
-  }
+  await browser.close();
+  console.log("browser closed")
+  res.setHeader('Content-Type', 'application/pdf');
+  res.json({ path: screenshotPath,pdf_path:pdfPath });
 });
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+// Function to scroll to the bottom of the page
+async function autoScroll(page) {
+  await page.evaluate(async () => {
+    await new Promise((resolve, reject) => {
+      let totalHeight = 0;
+      const distance = 100; // Adjust as needed
+      const interval = 100; // Adjust as needed
+      const timer = setInterval(() => {
+        const scrollHeight = document.body.scrollHeight;
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+        if (totalHeight >= scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, interval);
+    });
+  });
+}
