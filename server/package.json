@@ -21,6 +21,6 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.4",
     "pdfkit": "^0.13.0",
-     "puppeteer": "^21.1.1"
+    "puppeteer": "^21.1.1"
   }
 }
